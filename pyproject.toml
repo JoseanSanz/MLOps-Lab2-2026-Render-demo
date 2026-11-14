@@ -1,0 +1,26 @@
+[project]
+name = "mlops-lab2-demo"
+version = "0.2.0"
+description = "Calculator exposed as a CLI and a FastAPI REST API, containerized with Docker, deployed on Render and used from a Gradio GUI on Hugging Face Spaces"
+readme = "README.md"
+requires-python = ">=3.13"
+# Runtime dependencies: the only ones installed in the Docker image of the API
+dependencies = [
+    "click>=8.0",
+    "fastapi>=0.119.1",
+    "jinja2>=3.1.6",
+    "python-multipart>=0.0.20",
+    "uvicorn>=0.38.0",
+]
+
+# Development dependencies: installed by `uv sync` (default group), NOT in the Docker image
+[dependency-groups]
+dev = [
+    "black>=23.0",
+    "gradio>=5.49.1,<6",  # same major version as sdk_version in hf_space/README.md
+    "httpx>=0.28.1",      # needed by FastAPI's TestClient
+    "pylint>=2.15",
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "requests>=2.32.5",   # used by the Gradio app (hf_space/app.py)
+]
