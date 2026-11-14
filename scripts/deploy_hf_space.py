@@ -13,13 +13,13 @@ updates an existing Space.
 
 Environment variables:
     HF_TOKEN   Hugging Face token with write permission (required)
-    HF_SPACE   Space id, e.g. "username/MLOps-Lab2-demo" (required)
+    HF_SPACE   Space id, e.g. "username/MLOps-Lab2-2026-Render-demo" (required)
     API_URL    public URL of the backend (REST API), wherever it is hosted (optional):
                stored as a variable of the Space, where app.py reads it
     GIT_SHA    commit being deployed (optional): used in the commit message
 
 Run locally:
-    HF_TOKEN=... HF_SPACE=user/MLOps-Lab2-demo uv run python scripts/deploy_hf_space.py
+    HF_TOKEN=... HF_SPACE=user/MLOps-Lab2-2026-Render-demo uv run python scripts/deploy_hf_space.py
 """
 
 import os
