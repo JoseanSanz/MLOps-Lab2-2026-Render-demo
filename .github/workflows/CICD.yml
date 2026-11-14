@@ -112,7 +112,7 @@ jobs:
       - name: Upload hf_space/ to the Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          HF_SPACE: ${{ secrets.HF_USERNAME }}/MLOps-Lab2-demo
+          HF_SPACE: ${{ secrets.HF_USERNAME }}/MLOps-Lab2-2026-Render-demo
           API_URL: ${{ secrets.RENDER_API_URL }}
           GIT_SHA: ${{ github.sha }}
         run: uv run --no-project --with huggingface_hub python scripts/deploy_hf_space.py
