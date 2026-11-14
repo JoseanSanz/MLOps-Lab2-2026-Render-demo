@@ -11,6 +11,20 @@ import os
 import gradio as gr
 import requests
 
+# ZeroGPU Spaces (the free option for Gradio Spaces) do not start without at least one
+# function decorated with @spaces.GPU. This GUI does not need a GPU (it only calls the
+# backend through HTTP), so the function is empty and never called: it does not use
+# the GPU quota. The `spaces` package only exists in Hugging Face Spaces.
+try:
+    import spaces
+
+    @spaces.GPU
+    def zero_gpu_startup_check():
+        """Required by ZeroGPU Spaces to start (never called)."""
+
+except ImportError:  # locally and in the CI
+    pass
+
 # URL of the API created with FastAPI (set API_URL in the Space settings)
 API_URL = os.environ.get(
     "API_URL", "https://calculator-api-latest-r081.onrender.com"
