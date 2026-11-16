@@ -7,11 +7,14 @@ application, so that the focus is on the MLOps workflow. In this lab you will le
 
 * Organize a Python project with **uv** (dependencies pinned in `uv.lock`) and a **Makefile**.
 * Test it with **pytest** (unit and integration tests) and check it with **black** and **pylint**.
-* Expose the logic as a REST API with **FastAPI**.
+* Expose the logic as a REST API with **FastAPI** (a microservice: the backend).
 * **Containerize** the API with **Docker**.
 * Build a **CI/CD pipeline** with **GitHub Actions** that tests the code, builds and
-  publishes the image, deploys the API on **Render** and the GUI on **Hugging Face Spaces**.
-* Create a GUI with **Gradio** that uses the deployed API.
+  publishes the image and deploys the API and the GUI on **Render**.
+* Create a GUI with **Gradio** (the frontend, another service) that uses the deployed API.
+
+There is another version of this demo that uses **Modal** instead of Render:
+[MLOps-Lab2-2026-Modal-demo](https://github.com/JoseanSanz/MLOps-Lab2-2026-Modal-demo).
 
 ## Architecture
 
@@ -21,8 +24,8 @@ application, so that the focus is on the MLOps workflow. In this lab you will le
                                                  │
                     1. build ── format, lint, tests
                     2. docker ── build image, smoke test, push to Docker Hub
-                    3. deploy-render ── Render deploy hook ──► API (FastAPI) on Render
-                    4. deploy-hf ── upload hf_space/ ──────► GUI (Gradio) on Hugging Face
+                    3. deploy-backend ── deploy hook ──► API (FastAPI) on Render
+                    4. deploy-gui ── deploy hook ──────► GUI (Gradio) on Render
                                                                       │
                                                   POST /calculate ◄───┘
 ```
@@ -35,11 +38,9 @@ application, so that the focus is on the MLOps workflow. In this lab you will le
 ├── api/api.py                 # REST API (FastAPI): /, /health, /calculate
 ├── templates/home.html        # home page of the API
 ├── tests/                     # unit tests (logic, GUI) and integration tests (CLI, API)
-├── hf_space/                  # Gradio GUI uploaded to the Hugging Face Space
+├── gui/                       # Gradio GUI (frontend): a separate web service on Render
 │   ├── app.py
-│   ├── requirements.txt
-│   └── README.md              # Space configuration (sdk, sdk_version, app_file)
-├── scripts/deploy_hf_space.py # uploads hf_space/ to the Space (used by the CI/CD)
+│   └── requirements.txt       # dependencies of the GUI service only
 ├── Dockerfile                 # image of the API (only runtime dependencies)
 ├── Makefile                   # common tasks
 ├── pyproject.toml / uv.lock   # dependencies (runtime and dev group)
@@ -57,7 +58,7 @@ make format lint      # formats the code and runs pylint
 
 uv run python -m cli.cli add 1 2        # CLI
 make run-api                            # API at http://localhost:8000/docs
-make run-space                          # Gradio GUI against the local API (in another terminal)
+make run-gui                            # Gradio GUI at http://localhost:7860 (in another terminal)
 ```
 
 With Docker:
@@ -78,8 +79,8 @@ and commit the updated `uv.lock`: the CI and the Docker image install exactly th
 |---|---|---|
 | `build` | push and pull request to `main` | `make install`, `make format-check`, `make lint`, `make test` |
 | `docker` | after `build` | builds the image and checks that the container answers `/health`; on `main` it pushes `:latest` and `:<commit SHA>` to Docker Hub |
-| `deploy-render` | push to `main` | calls the Render deploy hook (Render pulls `:latest`) |
-| `deploy-hf` | push to `main` | uploads `hf_space/` to the Space and sets its `API_URL` variable |
+| `deploy-backend` | push to `main` | calls the deploy hook of the API service (Render pulls `:latest`) |
+| `deploy-gui` | push to `main` | calls the deploy hook of the GUI service (Render builds `gui/` from this commit) |
 
 Pull requests run the tests and build the image but never deploy.
 
@@ -89,22 +90,28 @@ Pull requests run the tests and build the image but never deploy.
 |---|---|
 | `DOCKERHUB_USERNAME` | Docker Hub user |
 | `DOCKERHUB_TOKEN` | Docker Hub access token (Account settings → Personal access tokens) |
-| `RENDER_DEPLOY_HOOK_URL` | full deploy hook URL of the Render service (Settings → Deploy Hook) |
-| `RENDER_API_URL` | public URL of the API on Render, e.g. `https://calculator-api-xxxx.onrender.com` |
-| `HF_USERNAME` | Hugging Face user |
-| `HF_TOKEN` | Hugging Face token with write permission |
+| `RENDER_DEPLOY_HOOK_URL` | deploy hook URL of the API service (Settings → Deploy Hook) |
+| `RENDER_GUI_DEPLOY_HOOK_URL` | deploy hook URL of the GUI service (Settings → Deploy Hook) |
 
 ### Setting up Render (once)
 
+**API service (backend)**
+
 1. New → Web Service → *Existing image*: `docker.io/<DOCKERHUB_USERNAME>/calculator-api:latest`.
 2. Free instance type. Render sets the `PORT` variable and the image listens on it.
-3. Copy the Deploy Hook URL into the `RENDER_DEPLOY_HOOK_URL` secret and the service URL into `RENDER_API_URL`.
+3. Copy the Deploy Hook URL into the `RENDER_DEPLOY_HOOK_URL` secret, and write down the
+   URL of the service (e.g. `https://calculator-api-xxxx.onrender.com`).
 
-Free instances sleep after ~15 minutes of inactivity and take up to a minute to wake up:
-the first request after a while is slow (the GUI waits up to 60 s).
+**GUI service (frontend)**
 
-### Hugging Face Space
+1. New → Web Service → *Git provider*: this repository, branch `main`.
+2. Root Directory: `gui` · Language: Python 3 · Build Command: `pip install -r requirements.txt`
+   · Start Command: `python app.py` · Free instance type.
+3. Environment variables: `API_URL` = URL of the API service (step 3 above), and
+   `PYTHON_VERSION` = `3.13` if Render's default version is a different one.
+4. Settings → Auto-Deploy: **Off**, so that the GUI is only deployed by the pipeline
+   (after the tests pass). Copy its Deploy Hook URL into the `RENDER_GUI_DEPLOY_HOOK_URL` secret.
 
-The pipeline creates the Space `<HF_USERNAME>/MLOps-Lab2-demo` if it does not exist,
-sets its `API_URL` variable and uploads the content of `hf_space/`. Do not edit the
-files directly in the Space: change them in this repository.
+Free services sleep after ~15 minutes of inactivity and take up to a minute to wake up.
+The first visit after a while may have to wake up both services, so it is slow (the GUI
+waits up to 90 s for the API).

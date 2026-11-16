@@ -22,8 +22,7 @@ htmlcov/
 .mypy_cache/
 
 # Parts of the repo that are not part of the API image
-hf_space/
-scripts/
+gui/
 cli/
 LICENSE
 Makefile

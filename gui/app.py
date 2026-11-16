@@ -1,9 +1,10 @@
 """
-Gradio GUI of the calculator, hosted in a Hugging Face Space.
+Gradio GUI of the calculator (frontend).
 
-It calls the /calculate endpoint of the API deployed on Render. The URL of the
-API is read from the API_URL environment variable (a variable of the Space),
-so it does not need to be hard-coded.
+It is a microservice of its own: it does not import the logic of the project, it
+only calls the /calculate endpoint of the REST API (backend) through HTTP. The URL
+of the API is read from the API_URL environment variable, so it does not need to
+be hard-coded. It is hosted on Render as a web service of its own (see README.md).
 """
 
 import os
@@ -11,28 +12,12 @@ import os
 import gradio as gr
 import requests
 
-# ZeroGPU Spaces (the free option for Gradio Spaces) do not start without at least one
-# function decorated with @spaces.GPU. This GUI does not need a GPU (it only calls the
-# backend through HTTP), so the function is empty and never called: it does not use
-# the GPU quota. The `spaces` package only exists in Hugging Face Spaces.
-try:
-    import spaces
+# URL of the API created with FastAPI (environment variable of the GUI service)
+API_URL = os.environ.get("API_URL", "http://localhost:8000").rstrip("/")
 
-    @spaces.GPU
-    def zero_gpu_startup_check():
-        """Required by ZeroGPU Spaces to start (never called)."""
-
-except ImportError:  # locally and in the CI
-    pass
-
-# URL of the API created with FastAPI (set API_URL in the Space settings)
-API_URL = os.environ.get(
-    "API_URL", "https://calculator-api-latest-r081.onrender.com"
-).rstrip("/")
-
-# Render's free instances sleep after ~15 min of inactivity and need up to a
-# minute to wake up, so the timeout must be generous
-TIMEOUT = float(os.environ.get("API_TIMEOUT", "60"))
+# Render's free services sleep after ~15 min of inactivity and need up to a minute to
+# wake up; the first request may have to wake up the API too, so the timeout is generous
+TIMEOUT = float(os.environ.get("API_TIMEOUT", "90"))
 
 OPERATIONS = ["add", "subtract", "multiply", "divide", "power"]
 
@@ -46,7 +31,7 @@ def calculate(a, b, operation):
     try:
         response = requests.post(f"{API_URL}/calculate", data=payload, timeout=TIMEOUT)
     except requests.exceptions.Timeout:
-        return "Error: the API did not answer in time (it may be waking up, try again)"
+        return "Error: the API did not answer in time (it may be starting, try again)"
     except requests.exceptions.RequestException as exc:
         return f"Error: could not connect to the API ({exc})"
 
@@ -72,10 +57,11 @@ demo = gr.Interface(
     title="Calculator created with FastAPI and Gradio",
     description=(
         "Interactive calculator using the /calculate endpoint of the API. "
-        "The first request may take up to a minute if the API is asleep."
+        "The first request may take a while if the API is starting."
     ),
 )
 
-# Launch the GUI
+# Launch the GUI: listening on all the interfaces (0.0.0.0) and on the port given by
+# the hosting platform in the PORT variable (7860, Gradio's default, locally)
 if __name__ == "__main__":
-    demo.launch()
+    demo.launch(server_name="0.0.0.0", server_port=int(os.environ.get("PORT", "7860")))

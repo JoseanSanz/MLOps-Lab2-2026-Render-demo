@@ -5,9 +5,9 @@ PATH := $(HOME)/.local/bin:$(PATH)
 IMAGE ?= calculator-api
 PORT ?= 8000
 # Source folders checked by black and pylint
-SRC := mylib api cli hf_space scripts
+SRC := mylib api cli gui
 
-.PHONY: install format format-check lint test run-api run-space docker-build docker-run refactor all
+.PHONY: install format format-check lint test run-api run-gui docker-build docker-run refactor all
 
 # Installs uv (if needed) and the dependencies, failing if uv.lock is out of date
 install:
@@ -35,9 +35,10 @@ test:
 run-api:
 	uv run uvicorn api.api:app --reload --port $(PORT)
 
-# Runs the Gradio GUI locally against the local API (start it first with make run-api)
-run-space:
-	API_URL=http://localhost:$(PORT) uv run python hf_space/app.py
+# Runs the Gradio GUI locally against the local API (start it first with make run-api):
+# http://localhost:7860
+run-gui:
+	API_URL=http://localhost:$(PORT) uv run python gui/app.py
 
 docker-build:
 	docker build -t $(IMAGE) .
